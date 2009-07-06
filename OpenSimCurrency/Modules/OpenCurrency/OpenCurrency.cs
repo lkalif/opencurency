@@ -809,7 +809,7 @@ namespace OpenCurrency.Modules.OpenCurrency
             return funds;
         }
 
-        public XmlRpcResponse GridMoneyUpdate(XmlRpcRequest request)
+        public XmlRpcResponse GridMoneyUpdate(XmlRpcRequest request, IPEndPoint ep)
         {
             m_log.Debug("[OPENCURRENCY]: Dynamic balance update called.");
             Hashtable requestData = (Hashtable) request.Params[0];
@@ -843,7 +843,7 @@ namespace OpenCurrency.Modules.OpenCurrency
         /// <summary>
         /// XMLRPC handler to send alert message and sound to client
         /// </summary>
-        public XmlRpcResponse UserAlert(XmlRpcRequest request)
+        public XmlRpcResponse UserAlert(XmlRpcRequest request, IPEndPoint ep)
         {
             XmlRpcResponse ret = new XmlRpcResponse();
             Hashtable retparam = new Hashtable();
@@ -893,7 +893,7 @@ namespace OpenCurrency.Modules.OpenCurrency
 
         # region Standalone box enablers only
 
-        public XmlRpcResponse quote_func(XmlRpcRequest request)
+        public XmlRpcResponse quote_func(XmlRpcRequest request, IPEndPoint ep)
         {
             Hashtable requestData = (Hashtable) request.Params[0];
             UUID agentId = UUID.Zero;
@@ -931,7 +931,7 @@ namespace OpenCurrency.Modules.OpenCurrency
             return returnval;
         }
 
-        public XmlRpcResponse buy_func(XmlRpcRequest request)
+        public XmlRpcResponse buy_func(XmlRpcRequest request, IPEndPoint ep)
         {
             Hashtable requestData = (Hashtable) request.Params[0];
             UUID agentId = UUID.Zero;
@@ -973,7 +973,7 @@ namespace OpenCurrency.Modules.OpenCurrency
             return returnval;
         }
 
-        public XmlRpcResponse preflightBuyLandPrep_func(XmlRpcRequest request)
+        public XmlRpcResponse preflightBuyLandPrep_func(XmlRpcRequest request, IPEndPoint ep)
         {
             XmlRpcResponse ret = new XmlRpcResponse();
             Hashtable retparam = new Hashtable();
@@ -1008,7 +1008,7 @@ namespace OpenCurrency.Modules.OpenCurrency
             return ret;
         }
 
-        public XmlRpcResponse landBuy_func(XmlRpcRequest request)
+        public XmlRpcResponse landBuy_func(XmlRpcRequest request, IPEndPoint ep)
         {
             XmlRpcResponse ret = new XmlRpcResponse();
             Hashtable retparam = new Hashtable();
@@ -1226,7 +1226,7 @@ namespace OpenCurrency.Modules.OpenCurrency
         /// When the client closes the connection we remove their accounting info from memory to free up resources.
         /// </summary>
         /// <param name="AgentID"></param>
-        public void ClientClosed(UUID AgentID)
+        public void ClientClosed(UUID AgentID, Scene scene)
         {
             lock (m_KnownClientFunds)
             {
@@ -1409,7 +1409,7 @@ namespace OpenCurrency.Modules.OpenCurrency
         /// Event Handler for when the client logs out.
         /// </summary>
         /// <param name="AgentId"></param>
-        private void ClientLoggedOut(UUID AgentId)
+        private void ClientLoggedOut(UUID AgentId, Scene scene)
         {
             lock (m_rootAgents)
             {
@@ -1427,7 +1427,7 @@ namespace OpenCurrency.Modules.OpenCurrency
         /// <param name="client"></param>
         public void ClientClosed(IClientAPI client)
         {
-            ClientClosed(client.AgentId);
+            ClientClosed(client.AgentId, null);
         }
 
         /// <summary>
