@@ -134,7 +134,7 @@ namespace OpenCurrency.Modules.OpenCurrency
             if (m_enabled)
             {
                 scene.RegisterModuleInterface<IMoneyModule>(this);
-                IHttpServer httpServer = scene.CommsManager.HttpServer;
+                IHttpServer httpServer = MainServer.Instance;
 
                 lock (m_scenel)
                 {
