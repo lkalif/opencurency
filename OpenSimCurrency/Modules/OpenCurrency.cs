@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Contributors, http://opensimulator.org/
+ * Copyright (c) Contributors, OpenCurrency Team
  * See CONTRIBUTORS.TXT for a full list of copyright holders.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,18 +52,16 @@ namespace OpenCurrency.Modules.OpenCurrency
     /// to the command line parameters you use to start up your client
     /// This commonly looks like -helperuri http://127.0.0.1:9000/
     ///
-    /// Centralized grid structure example using OpenSimWi Redux revision 9+
-    /// svn co https://opensimwiredux.svn.sourceforge.net/svnroot/opensimwiredux
     /// </summary>
 
-	public class OpenCurrencyModule : IMoneyModule, IRegionModule
+    public class OpenCurrencyModule : IMoneyModule, IRegionModule
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         /// <summary>
         /// Where Stipends come from and Fees go to.
         /// </summary>
-        // private UUID EconomyBaseAccount = UUID.Zero;
+        private UUID EconomyBaseAccount = UUID.Zero;
 
         private float EnergyEfficiency = 0f;
         private bool gridmode = false;
@@ -78,7 +76,7 @@ namespace OpenCurrency.Modules.OpenCurrency
 
         private int m_minFundsBeforeRefresh = 100;
         private string m_MoneyAddress = String.Empty;
-
+        
         /// <summary>
         /// Region UUIDS indexed by AgentID
         /// </summary>
@@ -127,7 +125,6 @@ namespace OpenCurrency.Modules.OpenCurrency
             IConfig startupConfig = m_gConfig.Configs["Startup"];
             IConfig economyConfig = m_gConfig.Configs["Economy"];
 
-
             ReadConfigAndPopulate(scene, startupConfig, "Startup");
             ReadConfigAndPopulate(scene, economyConfig, "Economy");
 
@@ -149,8 +146,6 @@ namespace OpenCurrency.Modules.OpenCurrency
 
                         if (m_MoneyAddress.Length > 0)
                         {
-                            // Centralized grid structure using OpenSimWi Redux revision 9+
-                            // https://opensimwiredux.svn.sourceforge.net/svnroot/opensimwiredux
                             httpServer.AddXmlRPCHandler("balanceUpdateRequest", GridMoneyUpdate);
                             httpServer.AddXmlRPCHandler("userAlert", UserAlert);
                         }
@@ -190,20 +185,43 @@ namespace OpenCurrency.Modules.OpenCurrency
         //
         public void ApplyUploadCharge(UUID agentID)
         {
+            string description = "Upload fee";
+            m_log.Debug("[OPENCURRENCY]: Base account: " + EconomyBaseAccount + " Agent ID: " + agentID + " " + description);
+            bool give_result = doMoneyTransfer(agentID, EconomyBaseAccount, PriceUpload, 2, description);
+
+            if (m_MoneyAddress.Length == 0)
+            {
+                BalanceUpdate(agentID, EconomyBaseAccount, give_result, description);
+            }
         }
 
         public void ApplyGroupCreationCharge(UUID agentID)
         {
+            string description = "Group create fee";
+            m_log.Debug("[OPENCURRENCY]: Base account: " + EconomyBaseAccount + " Agent ID: " + agentID + " " + description);
+            bool give_result = doMoneyTransfer(agentID, EconomyBaseAccount, PriceGroupCreate, 2, description);
+
+            if (m_MoneyAddress.Length == 0)
+            {
+                BalanceUpdate(agentID, EconomyBaseAccount, give_result, description);
+            }
         }
 
         public void ApplyCharge(UUID agentID, int amount, string text)
         {
+            string description = String.Format("Apply Charge {0} {1}", amount, text);
+            m_log.Debug("[OPENCURRENCY]: base account: " + EconomyBaseAccount + " Agent ID: " + agentID + " " + description);
+            bool give_result = doMoneyTransfer(agentID, EconomyBaseAccount, amount, 2, description);
+
+            if (m_MoneyAddress.Length == 0)
+            {
+                BalanceUpdate(agentID, EconomyBaseAccount, give_result, description);
+            }
         }
 
         public bool ObjectGiveMoney(UUID objectID, UUID fromID, UUID toID, int amount)
         {
             string description = String.Format("Object {0} pays {1}", resolveObjectName(objectID), resolveAgentName(toID));
-
             bool give_result = doMoneyTransfer(fromID, toID, amount, 2, description);
 
             if (m_MoneyAddress.Length == 0)
@@ -222,7 +240,7 @@ namespace OpenCurrency.Modules.OpenCurrency
 
         public string Name
         {
-            get { return "BetaGridLikeMoneyModule"; }
+            get { return "OpenCurrency"; }
         }
 
         public bool IsSharedModule
@@ -243,7 +261,7 @@ namespace OpenCurrency.Modules.OpenCurrency
             if (config == "Startup" && startupConfig != null)
             {
                 gridmode = startupConfig.GetBoolean("gridmode", false);
-                m_enabled = (startupConfig.GetString("economymodule", "BetaGridLikeMoneyModule") == "BetaGridLikeMoneyModule");
+                m_enabled = (startupConfig.GetString("economymodule", "OpenCurrency") == "OpenCurrency");
             }
 
             if (config == "Economy" && startupConfig != null)
@@ -264,9 +282,8 @@ namespace OpenCurrency.Modules.OpenCurrency
                 PriceObjectScaleFactor = startupConfig.GetFloat("PriceObjectScaleFactor", 10);
                 PriceParcelRent = startupConfig.GetInt("PriceParcelRent", 1);
                 PriceGroupCreate = startupConfig.GetInt("PriceGroupCreate", -1);
-                // string EBA = startupConfig.GetString("EconomyBaseAccount", UUID.Zero.ToString());
-                // Helpers.TryParse(EBA, out EconomyBaseAccount);
-
+                string EconomyBaseAccount = startupConfig.GetString("EconomyBaseAccount", UUID.Zero.ToString());
+                
                 // UserLevelPaysFees = startupConfig.GetInt("UserLevelPaysFees", -1);
                 m_stipend = startupConfig.GetInt("UserStipend", 1000);
                 m_minFundsBeforeRefresh = startupConfig.GetInt("IssueStipendWhenClientIsBelowAmount", 10);
@@ -333,12 +350,12 @@ namespace OpenCurrency.Modules.OpenCurrency
                         Hashtable hbinfo =
                             GetBalanceForUserFromMoneyServer(client.AgentId, client.SecureSessionId, s.RegionInfo.originRegionID,
                                                              s.RegionInfo.regionSecret);
-                        if ((bool) hbinfo["success"] == true)
+                        if ((bool)hbinfo["success"] == true)
                         {
                             UUID.TryParse((string)hbinfo["agentId"], out agentID);
                             try
                             {
-                                funds = (Int32) hbinfo["funds"];
+                                funds = (Int32)hbinfo["funds"];
                             }
                             catch (ArgumentException)
                             {
@@ -361,8 +378,8 @@ namespace OpenCurrency.Modules.OpenCurrency
                         else
                         {
                             m_log.WarnFormat("[OPENCURRENCY]: Getting Money for user {0} failed with the following message:{1}", agentID,
-                                             (string) hbinfo["errorMessage"]);
-                            client.SendAlertMessage((string) hbinfo["errorMessage"]);
+                                             (string)hbinfo["errorMessage"]);
+                            client.SendAlertMessage((string)hbinfo["errorMessage"]);
                         }
                         SendMoneyBalance(client, agentID, client.SessionId, UUID.Zero);
                     }
@@ -571,7 +588,7 @@ namespace OpenCurrency.Modules.OpenCurrency
 
                 return ErrorHash;
             }
-            Hashtable MoneyRespData = (Hashtable) MoneyResp.Value;
+            Hashtable MoneyRespData = (Hashtable)MoneyResp.Value;
 
             return MoneyRespData;
         }
@@ -640,10 +657,33 @@ namespace OpenCurrency.Modules.OpenCurrency
             else
             {
                 m_log.ErrorFormat(
-                    "[OPENCURRENCY]: Could not resolve user {0}", 
+                    "[OPENCURRENCY]: Could not resolve user {0}, maybe this is a deeded object to a group ",
                     agentID);
             }
-            
+
+            return String.Empty;
+        }
+
+        private string resolveGroupName(UUID groupId)
+        {
+            Scene scene = GetRandomScene(); 
+            IGroupsModule gm = scene.RequestModuleInterface<IGroupsModule>(); 
+            string group = gm.GetGroupRecord(groupId).GroupName;
+            if (group != null)
+            {
+                m_log.DebugFormat(
+                    "[OPENCURRENCY]: Resolved group {0} to " + group, 
+                    groupId);
+
+                return group;
+            }
+            else
+            {
+                m_log.ErrorFormat(
+                    "[OPENCURRENCY]: Could not resolve group {0}",
+                    groupId);
+            }
+
             return String.Empty;
         }
 
@@ -706,13 +746,13 @@ namespace OpenCurrency.Modules.OpenCurrency
 
                     Hashtable hresult = genericCurrencyXMLRPCRequest(ht, "regionMoveMoney");
 
-                    if ((bool) hresult["success"] == true)
+                    if ((bool)hresult["success"] == true)
                     {
                         int funds1 = 0;
                         int funds2 = 0;
                         try
                         {
-                            funds1 = (Int32) hresult["funds"];
+                            funds1 = (Int32)hresult["funds"];
                         }
                         catch (InvalidCastException)
                         {
@@ -723,7 +763,7 @@ namespace OpenCurrency.Modules.OpenCurrency
                         {
                             try
                             {
-                                funds2 = (Int32) hresult["funds2"];
+                                funds2 = (Int32)hresult["funds2"];
                             }
                             catch (InvalidCastException)
                             {
@@ -737,7 +777,7 @@ namespace OpenCurrency.Modules.OpenCurrency
                     }
                     else
                     {
-                        cli.SendAgentAlertMessage((string) hresult["errorMessage"], true);
+                        cli.SendAgentAlertMessage((string)hresult["errorMessage"], true);
                     }
                 }
             }
@@ -764,11 +804,11 @@ namespace OpenCurrency.Modules.OpenCurrency
                         Hashtable hbinfo =
                             GetBalanceForUserFromMoneyServer(aClient.AgentId, aClient.SecureSessionId, s.RegionInfo.originRegionID,
                                                              s.RegionInfo.regionSecret);
-                        if ((bool) hbinfo["success"] == true)
+                        if ((bool)hbinfo["success"] == true)
                         {
                             try
                             {
-                                funds = (Int32) hbinfo["funds"];
+                                funds = (Int32)hbinfo["funds"];
                             }
                             catch (ArgumentException)
                             {
@@ -789,8 +829,8 @@ namespace OpenCurrency.Modules.OpenCurrency
                         else
                         {
                             m_log.WarnFormat("[OPENCURRENCY]: Getting Money for user {0} failed with the following message:{1}", agentId,
-                                             (string) hbinfo["errorMessage"]);
-                            aClient.SendAlertMessage((string) hbinfo["errorMessage"]);
+                                             (string)hbinfo["errorMessage"]);
+                            aClient.SendAlertMessage((string)hbinfo["errorMessage"]);
                         }
                     }
 
@@ -812,13 +852,13 @@ namespace OpenCurrency.Modules.OpenCurrency
         public XmlRpcResponse GridMoneyUpdate(XmlRpcRequest request, IPEndPoint ep)
         {
             m_log.Debug("[OPENCURRENCY]: Dynamic balance update called.");
-            Hashtable requestData = (Hashtable) request.Params[0];
+            Hashtable requestData = (Hashtable)request.Params[0];
 
             if (requestData.ContainsKey("agentId"))
             {
                 UUID agentId = UUID.Zero;
 
-                UUID.TryParse((string) requestData["agentId"], out agentId);
+                UUID.TryParse((string)requestData["agentId"], out agentId);
                 if (agentId != UUID.Zero)
                 {
                     GetRemoteBalance(agentId);
@@ -847,17 +887,17 @@ namespace OpenCurrency.Modules.OpenCurrency
         {
             XmlRpcResponse ret = new XmlRpcResponse();
             Hashtable retparam = new Hashtable();
-            Hashtable requestData = (Hashtable) request.Params[0];
+            Hashtable requestData = (Hashtable)request.Params[0];
 
             UUID agentId;
             UUID soundId;
             UUID regionId;
 
-            UUID.TryParse((string) requestData["agentId"], out agentId);
-            UUID.TryParse((string) requestData["soundId"], out soundId);
-            UUID.TryParse((string) requestData["regionId"], out regionId);
-            string text = (string) requestData["text"];
-            string secret = (string) requestData["secret"];
+            UUID.TryParse((string)requestData["agentId"], out agentId);
+            UUID.TryParse((string)requestData["soundId"], out soundId);
+            UUID.TryParse((string)requestData["regionId"], out regionId);
+            string text = (string)requestData["text"];
+            string secret = (string)requestData["secret"];
 
             Scene userScene = GetSceneByUUID(regionId);
             if (userScene != null)
@@ -866,16 +906,16 @@ namespace OpenCurrency.Modules.OpenCurrency
                 {
 
                     IClientAPI client = LocateClientObject(agentId);
-                       if (client != null)
-                       {
+                    if (client != null)
+                    {
 
-                           if (soundId != UUID.Zero)
-                               client.SendPlayAttachedSound(soundId, UUID.Zero, UUID.Zero, 1.0f, 0);
+                        if (soundId != UUID.Zero)
+                            client.SendPlayAttachedSound(soundId, UUID.Zero, UUID.Zero, 1.0f, 0);
 
-                           client.SendBlueBoxMessage(UUID.Zero, "", text);
+                        client.SendBlueBoxMessage(UUID.Zero, "", text);
 
-                           retparam.Add("success", true);
-                       }
+                        retparam.Add("success", true);
+                    }
                     else
                     {
                         retparam.Add("success", false);
@@ -895,7 +935,7 @@ namespace OpenCurrency.Modules.OpenCurrency
 
         public XmlRpcResponse quote_func(XmlRpcRequest request, IPEndPoint ep)
         {
-            Hashtable requestData = (Hashtable) request.Params[0];
+            Hashtable requestData = (Hashtable)request.Params[0];
             UUID agentId = UUID.Zero;
             int amount = 0;
             Hashtable quoteResponse = new Hashtable();
@@ -903,10 +943,10 @@ namespace OpenCurrency.Modules.OpenCurrency
 
             if (requestData.ContainsKey("agentId") && requestData.ContainsKey("currencyBuy"))
             {
-                UUID.TryParse((string) requestData["agentId"], out agentId);
+                UUID.TryParse((string)requestData["agentId"], out agentId);
                 try
                 {
-                    amount = (Int32) requestData["currencyBuy"];
+                    amount = (Int32)requestData["currencyBuy"];
                 }
                 catch (InvalidCastException)
                 {
@@ -933,15 +973,15 @@ namespace OpenCurrency.Modules.OpenCurrency
 
         public XmlRpcResponse buy_func(XmlRpcRequest request, IPEndPoint ep)
         {
-            Hashtable requestData = (Hashtable) request.Params[0];
+            Hashtable requestData = (Hashtable)request.Params[0];
             UUID agentId = UUID.Zero;
             int amount = 0;
             if (requestData.ContainsKey("agentId") && requestData.ContainsKey("currencyBuy"))
             {
-                UUID.TryParse((string) requestData["agentId"], out agentId);
+                UUID.TryParse((string)requestData["agentId"], out agentId);
                 try
                 {
-                    amount = (Int32) requestData["currencyBuy"];
+                    amount = (Int32)requestData["currencyBuy"];
                 }
                 catch (InvalidCastException)
                 {
@@ -1012,16 +1052,16 @@ namespace OpenCurrency.Modules.OpenCurrency
         {
             XmlRpcResponse ret = new XmlRpcResponse();
             Hashtable retparam = new Hashtable();
-            Hashtable requestData = (Hashtable) request.Params[0];
+            Hashtable requestData = (Hashtable)request.Params[0];
 
             UUID agentId = UUID.Zero;
             int amount = 0;
             if (requestData.ContainsKey("agentId") && requestData.ContainsKey("currencyBuy"))
             {
-                UUID.TryParse((string) requestData["agentId"], out agentId);
+                UUID.TryParse((string)requestData["agentId"], out agentId);
                 try
                 {
-                    amount = (Int32) requestData["currencyBuy"];
+                    amount = (Int32)requestData["currencyBuy"];
                 }
                 catch (InvalidCastException)
                 {
@@ -1331,7 +1371,17 @@ namespace OpenCurrency.Modules.OpenCurrency
 
                     string name = resolveAgentName(part.OwnerID);
                     if (name == String.Empty)
-                        name = "(hippos)";
+                    {
+                        string groupname = resolveGroupName(part.OwnerID);
+                        if (groupname == String.Empty)
+                        {
+                            name = "Unknown";
+                        }
+                        else
+                        {
+                            name = groupname;
+                        }
+                    }
 
                     receiver = LocateClientObject(part.OwnerID);
 
@@ -1410,7 +1460,7 @@ namespace OpenCurrency.Modules.OpenCurrency
         /// </summary>
         /// <param name="AgentId"></param>
         private void ClientLoggedOut(UUID AgentId, Scene scene)
-        {
+		{
             lock (m_rootAgents)
             {
                 if (m_rootAgents.ContainsKey(AgentId))
@@ -1500,12 +1550,12 @@ namespace OpenCurrency.Modules.OpenCurrency
                         if (RegionItem != null)
                         {
                             Hashtable hresult = claim_user(avatar.UUID, avatar.ControllingClient.SecureSessionId, regionID, RegionItem.RegionInfo.regionSecret);
-                            if ((bool) hresult["success"] == true)
+                            if ((bool)hresult["success"] == true)
                             {
                                 int funds = 0;
                                 try
                                 {
-                                    funds = (Int32) hresult["funds"];
+                                    funds = (Int32)hresult["funds"];
                                 }
                                 catch (InvalidCastException)
                                 {
@@ -1514,7 +1564,7 @@ namespace OpenCurrency.Modules.OpenCurrency
                             }
                             else
                             {
-                                avatar.ControllingClient.SendAgentAlertMessage((string) hresult["errorMessage"], true);
+                                avatar.ControllingClient.SendAgentAlertMessage((string)hresult["errorMessage"], true);
                             }
                         }
                     }
@@ -1602,5 +1652,5 @@ namespace OpenCurrency.Modules.OpenCurrency
         Purchase = 3
     }
 
-  
+
 }
