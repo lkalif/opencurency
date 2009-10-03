@@ -289,7 +289,6 @@ namespace OpenCurrency.Modules.OpenCurrency
                 m_minFundsBeforeRefresh = startupConfig.GetInt("IssueStipendWhenClientIsBelowAmount", 10);
                 m_keepMoneyAcrossLogins = startupConfig.GetBoolean("KeepMoneyAcrossLogins", true);
                 m_MoneyAddress = startupConfig.GetString("CurrencyServer", String.Empty);
-                // m_LandAddress = startupConfig.GetString("LandServer", String.Empty);
             }
 
             // Send ObjectCapacity to Scene..  Which sends it to the SimStatsReporter.
@@ -1023,7 +1022,6 @@ namespace OpenCurrency.Modules.OpenCurrency
             level.Add("id", "00000000-0000-0000-0000-000000000000");
             level.Add("description", "some level");
             levels.Add(level);
-            //membershiplevels.Add("levels",levels);
 
             Hashtable landuse = new Hashtable();
             landuse.Add("upgrade", false);
@@ -1528,7 +1526,7 @@ namespace OpenCurrency.Modules.OpenCurrency
                     else
                     {
                         ILandObject obj = avatar.Scene.LandChannel.GetLandObject(avatar.AbsolutePosition.X, avatar.AbsolutePosition.Y);
-                        if ((obj.landData.Flags & (uint)ParcelFlags.AllowDamage) != 0)
+                        if ((obj.LandData.Flags & (uint)ParcelFlags.AllowDamage) != 0)
                         {
                             avatar.Invulnerable = false;
                         }
