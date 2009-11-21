@@ -1,4 +1,4 @@
-   <Project name="OpenCurrency.Modules" path="addon-modules/OpenSimCurrency/Modules" type="Library">
+   <Project frameworkVersion="v3_5" name="OpenCurrency.Modules" path="addon-modules/OpenSimCurrency/Modules" type="Library">
      <Configuration name="Debug">
        <Options>
          <OutputPath>../../../bin/</OutputPath>
