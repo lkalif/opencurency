@@ -28,11 +28,9 @@
      <Reference name="OpenSim.Framework.Communications"/>
      <Reference name="Nini.dll" />
      <Reference name="log4net.dll"/>
+     <Reference name="Mono.Addins.dll"/>
 
      <Files>
-       <Match pattern="*.addin.xml" path="Resources" buildAction="EmbeddedResource" recurse="true"/>
-       <Match pattern="*.cs" recurse="true">
-       </Match>
-       <Match pattern="*.addin.xml" path="Resources" buildAction="EmbeddedResource" recurse="true"/>
+       <Match pattern="*.cs" recurse="true"/>
      </Files>
    </Project>
